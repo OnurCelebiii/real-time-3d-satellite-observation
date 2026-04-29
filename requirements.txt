@@ -1,0 +1,3 @@
+requests>=2.31
+skyfield>=1.49
+flask>=3.0
