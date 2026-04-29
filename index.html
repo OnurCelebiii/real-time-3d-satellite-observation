@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HAWK 6 Constellation – Real-Time 3D Tracker</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%2300d0ff'/%3E%3C/svg%3E"/>
+<style>
+  :root {
+    --bg: #000308;
+    --panel: rgba(8, 14, 24, 0.78);
+    --panel-border: rgba(0, 208, 255, 0.25);
+    --accent: #00d0ff;
+    --accent-warm: #ffb44d;
+    --text: #e6f1ff;
+    --text-dim: #8aa3bf;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    overflow: hidden;
+  }
+  #globe { position: fixed; inset: 0; }
+
+  .panel {
+    position: fixed;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    z-index: 5;
+  }
+  .panel h1, .panel h2 { margin: 0 0 8px 0; }
+  .panel h1 { font-size: 16px; letter-spacing: 0.5px; color: var(--accent); }
+  .panel h2 { font-size: 12px; text-transform: uppercase; color: var(--text-dim); letter-spacing: 1px; }
+  .panel .sub { font-size: 11px; color: var(--text-dim); margin-bottom: 6px; }
+
+  #header {
+    top: 14px; left: 14px;
+    max-width: 320px;
+  }
+  #header .title-row { display: flex; align-items: center; gap: 8px; }
+  #header .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--accent);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.5; transform: scale(0.85); }
+  }
+  #header .meta { font-size: 12px; color: var(--text-dim); margin-top: 6px; line-height: 1.5; }
+  #header a { color: var(--accent); text-decoration: none; }
+
+  #sat-list {
+    top: 14px; right: 14px;
+    width: 280px;
+    max-height: calc(100vh - 28px);
+    overflow-y: auto;
+  }
+  #sat-list .item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 10px;
+    margin: 4px 0;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border-left: 3px solid var(--accent);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  #sat-list .item:hover { background: rgba(0, 208, 255, 0.1); }
+  #sat-list .item.active {
+    background: rgba(0, 208, 255, 0.18);
+    box-shadow: 0 0 0 1px var(--accent) inset;
+  }
+  #sat-list .name { font-weight: 600; font-size: 13px; }
+  #sat-list .alt { font-size: 11px; color: var(--text-dim); }
+  #sat-list .item .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    box-shadow: 0 0 10px currentColor;
+  }
+  #sat-list .empty {
+    padding: 14px; font-size: 12px; color: var(--text-dim); text-align: center;
+  }
+
+  #controls {
+    bottom: 14px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 18px;
+  }
+  #controls button {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.15s;
+  }
+  #controls button:hover { border-color: var(--accent); color: var(--accent); }
+  #controls button.active { background: var(--accent); color: #000; border-color: var(--accent); }
+  #controls .clock { font-family: "SF Mono", Menlo, monospace; font-size: 13px; color: var(--accent); min-width: 200px; text-align: center; }
+  #controls .speed { display: flex; gap: 4px; }
+
+  #info {
+    bottom: 14px; right: 14px;
+    width: 270px;
+    display: none;
+  }
+  #info.visible { display: block; }
+  #info .row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 12px; }
+  #info .label { color: var(--text-dim); }
+  #info .value { font-family: "SF Mono", Menlo, monospace; }
+
+  #loader {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg);
+    z-index: 100;
+    transition: opacity 0.6s;
+    flex-direction: column; gap: 16px;
+  }
+  #loader.hidden { opacity: 0; pointer-events: none; }
+  #loader .ring {
+    width: 48px; height: 48px;
+    border: 3px solid rgba(0, 208, 255, 0.15);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loader .msg { color: var(--text-dim); font-size: 13px; letter-spacing: 0.5px; }
+
+  #error {
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 20px 26px;
+    background: rgba(60, 10, 10, 0.9);
+    border: 1px solid #ff5050;
+    border-radius: 10px;
+    max-width: 420px;
+    display: none;
+    z-index: 50;
+  }
+  #error.visible { display: block; }
+  #error h3 { margin: 0 0 8px 0; color: #ff8080; }
+  #error p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--text); }
+
+  @media (max-width: 720px) {
+    #sat-list { width: 220px; }
+    #header { max-width: 240px; }
+    #info { width: 220px; }
+    #controls { gap: 8px; padding: 8px 12px; }
+    #controls .clock { min-width: 120px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loader">
+  <div class="ring"></div>
+  <div class="msg">Acquiring HAWK&nbsp;6 ephemeris…</div>
+</div>
+
+<div id="globe"></div>
+
+<div id="header" class="panel">
+  <div class="title-row">
+    <span class="dot"></span>
+    <h1>HAWK 6 CONSTELLATION</h1>
+  </div>
+  <div class="sub">HawkEye 360 Cluster 6 · Live 3D tracker</div>
+  <div class="meta">
+    Real-time orbital propagation (SGP4) using TLE data from
+    <a href="https://celestrak.org/" target="_blank" rel="noopener">CelesTrak</a>.
+    Click a satellite to focus.
+  </div>
+</div>
+
+<div id="sat-list" class="panel">
+  <h2>Satellites</h2>
+  <div id="sat-list-items"><div class="empty">Loading…</div></div>
+</div>
+
+<div id="controls" class="panel">
+  <button id="btn-pause" title="Pause / play">⏸</button>
+  <div class="clock" id="clock">--</div>
+  <div class="speed">
+    <button data-speed="1" class="active">1×</button>
+    <button data-speed="10">10×</button>
+    <button data-speed="100">100×</button>
+    <button data-speed="1000">1000×</button>
+  </div>
+  <button id="btn-now" title="Reset to now">NOW</button>
+</div>
+
+<div id="info" class="panel">
+  <h2 id="info-name">—</h2>
+  <div class="row"><span class="label">NORAD ID</span><span class="value" id="info-id">—</span></div>
+  <div class="row"><span class="label">Latitude</span><span class="value" id="info-lat">—</span></div>
+  <div class="row"><span class="label">Longitude</span><span class="value" id="info-lon">—</span></div>
+  <div class="row"><span class="label">Altitude</span><span class="value" id="info-alt">—</span></div>
+  <div class="row"><span class="label">Velocity</span><span class="value" id="info-vel">—</span></div>
+  <div class="row"><span class="label">Period</span><span class="value" id="info-period">—</span></div>
+  <div class="row"><span class="label">Inclination</span><span class="value" id="info-inc">—</span></div>
+</div>
+
+<div id="error" class="panel">
+  <h3>Could not load TLE data</h3>
+  <p id="error-msg">CelesTrak request failed. Please refresh — your network may be blocking the data feed.</p>
+</div>
+
+<script src="https://unpkg.com/three@0.155.0/build/three.min.js"></script>
+<script src="https://unpkg.com/globe.gl@2.32.6/dist/globe.gl.min.js"></script>
+<script src="https://unpkg.com/satellite.js@5.0.0/dist/satellite.min.js"></script>
+
+<script>
+(() => {
+  // ---------- Configuration ----------
+  // CelesTrak GP query for any satellite whose NAME contains "HAWK".
+  // Filtered client-side to "HAWK 6*" (HawkEye 360 cluster 6).
+  // CORS proxies are used as fallbacks since CelesTrak does not always send
+  // permissive CORS headers from every region.
+  const TLE_SOURCES = [
+    'https://celestrak.org/NORAD/elements/gp.php?NAME=HAWK&FORMAT=tle',
+    'https://corsproxy.io/?https%3A%2F%2Fcelestrak.org%2FNORAD%2Felements%2Fgp.php%3FNAME%3DHAWK%26FORMAT%3Dtle',
+    'https://api.allorigins.win/raw?url=https%3A%2F%2Fcelestrak.org%2FNORAD%2Felements%2Fgp.php%3FNAME%3DHAWK%26FORMAT%3Dtle'
+  ];
+  const HAWK6_REGEX = /^HAWK[\s-]*6/i;
+  const SAT_COLORS = ['#00d0ff', '#ffb44d', '#ff5da2', '#7cffb2', '#c89bff', '#ffd24d', '#69e0ff'];
+  const TRAIL_LOOKBACK_MIN = 45;
+  const TRAIL_LOOKAHEAD_MIN = 45;
+  const TRAIL_STEP_S = 30;
+  const EARTH_RADIUS_KM = 6371;
+
+  // ---------- State ----------
+  const state = {
+    sats: [],          // [{name, noradId, satrec, color, visible}]
+    selected: null,
+    paused: false,
+    speed: 1,
+    simTime: new Date(),
+    lastReal: performance.now()
+  };
+
+  // ---------- Globe ----------
+  const globe = Globe()(document.getElementById('globe'))
+    .globeImageUrl('https://unpkg.com/three-globe@2.27.2/example/img/earth-blue-marble.jpg')
+    .bumpImageUrl('https://unpkg.com/three-globe@2.27.2/example/img/earth-topology.png')
+    .backgroundImageUrl('https://unpkg.com/three-globe@2.27.2/example/img/night-sky.png')
+    .showAtmosphere(true)
+    .atmosphereColor('#7ecbff')
+    .atmosphereAltitude(0.18);
+
+  // Make the camera start a bit further out for a "from space" feel
+  globe.pointOfView({ lat: 20, lng: 0, altitude: 3.0 }, 0);
+
+  // Auto-rotate slowly until user interacts
+  const controls = globe.controls();
+  controls.autoRotate = true;
+  controls.autoRotateSpeed = 0.25;
+  controls.enableDamping = true;
+  ['mousedown','wheel','touchstart'].forEach(ev =>
+    globe.renderer().domElement.addEventListener(ev, () => { controls.autoRotate = false; }, { once: true, passive: true })
+  );
+
+  // ---------- Satellite rendering objects ----------
+  const satMeshGeom = new THREE.OctahedronGeometry(0.6, 0);
+  const haloGeom    = new THREE.SphereGeometry(1.4, 16, 16);
+
+  function makeSatObject(color) {
+    const group = new THREE.Group();
+    const body = new THREE.Mesh(
+      satMeshGeom,
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 })
+    );
+    const halo = new THREE.Mesh(
+      haloGeom,
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.18 })
+    );
+    group.add(body); group.add(halo);
+    return group;
+  }
+
+  globe
+    .objectsData([])
+    .objectLat(d => d.lat)
+    .objectLng(d => d.lng)
+    .objectAltitude(d => d.alt)
+    .objectThreeObject(d => makeSatObject(d.color))
+    .objectLabel(d => `<div style="background:rgba(0,0,0,0.8);padding:6px 10px;border-radius:6px;border:1px solid ${d.color};color:#fff;font-size:12px;">
+        <b style="color:${d.color}">${d.name}</b><br/>
+        Alt: ${(d.alt * EARTH_RADIUS_KM).toFixed(0)} km
+      </div>`)
+    .onObjectClick(d => selectSat(d.name));
+
+  globe
+    .pathsData([])
+    .pathPoints('points')
+    .pathPointLat(p => p[0])
+    .pathPointLng(p => p[1])
+    .pathPointAlt(p => p[2])
+    .pathColor(p => p.color)
+    .pathStroke(1.4)
+    .pathDashLength(0.4)
+    .pathDashGap(0.15)
+    .pathDashAnimateTime(8000)
+    .pathTransitionDuration(0);
+
+  // ---------- TLE fetch & parse ----------
+  async function fetchTLE() {
+    let lastErr;
+    for (const url of TLE_SOURCES) {
+      try {
+        const r = await fetch(url, { cache: 'no-cache' });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const txt = (await r.text()).trim();
+        if (txt.length < 50 || /not found|invalid/i.test(txt.split('\n')[0])) {
+          throw new Error('Empty or invalid TLE response');
+        }
+        return txt;
+      } catch (e) { lastErr = e; }
+    }
+    throw lastErr || new Error('All TLE sources failed');
+  }
+
+  function parseTLE(text) {
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const sats = [];
+    for (let i = 0; i < lines.length - 2; i++) {
+      const name = lines[i];
+      const l1 = lines[i + 1];
+      const l2 = lines[i + 2];
+      if (l1.startsWith('1 ') && l2.startsWith('2 ')) {
+        if (HAWK6_REGEX.test(name)) {
+          try {
+            const satrec = satellite.twoline2satrec(l1, l2);
+            const noradId = l1.substring(2, 7).trim();
+            const inclDeg = parseFloat(l2.substring(8, 16));
+            const meanMotion = parseFloat(l2.substring(52, 63));
+            const periodMin = meanMotion > 0 ? 1440 / meanMotion : 0;
+            sats.push({
+              name,
+              noradId,
+              satrec,
+              inclDeg,
+              periodMin,
+              color: SAT_COLORS[sats.length % SAT_COLORS.length],
+              visible: true
+            });
+          } catch (e) { /* skip bad TLE */ }
+        }
+        i += 2;
+      }
+    }
+    return sats;
+  }
+
+  // ---------- Propagation ----------
+  function propagate(sat, date) {
+    const pv = satellite.propagate(sat.satrec, date);
+    if (!pv.position) return null;
+    const gmst = satellite.gstime(date);
+    const geo = satellite.eciToGeodetic(pv.position, gmst);
+    const lat = satellite.degreesLat(geo.latitude);
+    const lng = satellite.degreesLong(geo.longitude);
+    const altKm = geo.height;
+    const v = pv.velocity;
+    const speedKms = v ? Math.sqrt(v.x*v.x + v.y*v.y + v.z*v.z) : 0;
+    return { lat, lng, altKm, speedKms };
+  }
+
+  function buildTrail(sat, centerDate) {
+    const pts = [];
+    for (let dt = -TRAIL_LOOKBACK_MIN * 60; dt <= TRAIL_LOOKAHEAD_MIN * 60; dt += TRAIL_STEP_S) {
+      const t = new Date(centerDate.getTime() + dt * 1000);
+      const p = propagate(sat, t);
+      if (!p) continue;
+      pts.push([p.lat, p.lng, p.altKm / EARTH_RADIUS_KM]);
+    }
+    return { color: sat.color, points: pts, name: sat.name };
+  }
+
+  // ---------- UI ----------
+  const $ = id => document.getElementById(id);
+
+  function renderSatList() {
+    const root = $('sat-list-items');
+    if (!state.sats.length) {
+      root.innerHTML = '<div class="empty">No HAWK 6 satellites found in current TLE feed.</div>';
+      return;
+    }
+    root.innerHTML = '';
+    state.sats.forEach(sat => {
+      const item = document.createElement('div');
+      item.className = 'item' + (state.selected === sat.name ? ' active' : '');
+      item.style.borderLeftColor = sat.color;
+      item.innerHTML = `
+        <div>
+          <div class="name">${sat.name}</div>
+          <div class="alt" id="alt-${cssId(sat.name)}">—</div>
+        </div>
+        <span class="dot" style="color:${sat.color};background:${sat.color}"></span>
+      `;
+      item.onclick = () => selectSat(sat.name);
+      root.appendChild(item);
+    });
+  }
+
+  function cssId(s) { return s.replace(/[^a-z0-9]/gi, '_'); }
+
+  function selectSat(name) {
+    state.selected = name;
+    const sat = state.sats.find(s => s.name === name);
+    if (!sat) return;
+    const p = propagate(sat, state.simTime);
+    if (p) {
+      globe.pointOfView({ lat: p.lat, lng: p.lng, altitude: 1.6 }, 1200);
+    }
+    refreshTrails();
+    renderSatList();
+    updateInfoPanel();
+  }
+
+  function updateInfoPanel() {
+    const info = $('info');
+    if (!state.selected) { info.classList.remove('visible'); return; }
+    const sat = state.sats.find(s => s.name === state.selected);
+    if (!sat) { info.classList.remove('visible'); return; }
+    info.classList.add('visible');
+    const p = propagate(sat, state.simTime);
+    $('info-name').textContent = sat.name;
+    $('info-id').textContent = sat.noradId;
+    if (!p) return;
+    $('info-lat').textContent = p.lat.toFixed(3) + '°';
+    $('info-lon').textContent = p.lng.toFixed(3) + '°';
+    $('info-alt').textContent = p.altKm.toFixed(1) + ' km';
+    $('info-vel').textContent = p.speedKms.toFixed(2) + ' km/s';
+    $('info-period').textContent = sat.periodMin.toFixed(1) + ' min';
+    $('info-inc').textContent = sat.inclDeg.toFixed(2) + '°';
+  }
+
+  function refreshTrails() {
+    const focused = state.selected;
+    const trails = state.sats
+      .filter(s => s.visible && (!focused || s.name === focused))
+      .map(s => buildTrail(s, state.simTime));
+    globe.pathsData(trails);
+  }
+
+  function tick() {
+    requestAnimationFrame(tick);
+    const now = performance.now();
+    const dtMs = now - state.lastReal;
+    state.lastReal = now;
+    if (!state.paused) {
+      state.simTime = new Date(state.simTime.getTime() + dtMs * state.speed);
+    }
+    // Update sat positions
+    const items = state.sats.map(sat => {
+      const p = propagate(sat, state.simTime);
+      if (!p) return null;
+      return {
+        name: sat.name,
+        lat: p.lat,
+        lng: p.lng,
+        alt: p.altKm / EARTH_RADIUS_KM,
+        color: sat.color
+      };
+    }).filter(Boolean);
+    globe.objectsData(items);
+
+    // Clock
+    $('clock').textContent = state.simTime.toISOString().replace('T', ' ').replace(/\..+/, ' UTC');
+
+    // Per-sat altitude readout
+    items.forEach(it => {
+      const el = $('alt-' + cssId(it.name));
+      if (el) el.textContent = (it.alt * EARTH_RADIUS_KM).toFixed(0) + ' km · ' + it.lat.toFixed(1) + '°, ' + it.lng.toFixed(1) + '°';
+    });
+
+    if (state.selected) updateInfoPanel();
+  }
+
+  // Periodically rebuild trails so they keep up with simulation time
+  setInterval(() => { if (!state.paused) refreshTrails(); }, 5000);
+
+  // Refresh TLE every 6h to keep ephemeris current
+  setInterval(() => loadTLE().catch(() => {}), 6 * 3600 * 1000);
+
+  // ---------- Controls ----------
+  $('btn-pause').onclick = () => {
+    state.paused = !state.paused;
+    $('btn-pause').textContent = state.paused ? '▶' : '⏸';
+  };
+  $('btn-now').onclick = () => {
+    state.simTime = new Date();
+    refreshTrails();
+  };
+  document.querySelectorAll('#controls .speed button').forEach(b => {
+    b.onclick = () => {
+      state.speed = parseInt(b.dataset.speed, 10);
+      document.querySelectorAll('#controls .speed button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+    };
+  });
+
+  // Resize
+  window.addEventListener('resize', () => {
+    globe.width(window.innerWidth).height(window.innerHeight);
+  });
+  globe.width(window.innerWidth).height(window.innerHeight);
+
+  // ---------- Boot ----------
+  async function loadTLE() {
+    const txt = await fetchTLE();
+    const sats = parseTLE(txt);
+    if (!sats.length) {
+      // Fallback: also accept HAWK-6, HAWK6, etc.
+      throw new Error('No HAWK 6 satellites in TLE feed.');
+    }
+    state.sats = sats;
+    renderSatList();
+    refreshTrails();
+  }
+
+  loadTLE()
+    .then(() => {
+      $('loader').classList.add('hidden');
+      tick();
+    })
+    .catch(err => {
+      console.error(err);
+      $('error-msg').textContent = err.message + ' — Try refreshing in a few seconds, or check your network.';
+      $('error').classList.add('visible');
+      $('loader').classList.add('hidden');
+      // Still run the loop so the empty Earth renders
+      tick();
+    });
+})();
+</script>
+</body>
+</html>
