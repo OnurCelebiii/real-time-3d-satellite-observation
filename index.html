@@ -235,6 +235,19 @@
     'https://corsproxy.io/?https%3A%2F%2Fcelestrak.org%2FNORAD%2Felements%2Fgp.php%3FNAME%3DHAWK%26FORMAT%3Dtle',
     'https://api.allorigins.win/raw?url=https%3A%2F%2Fcelestrak.org%2FNORAD%2Felements%2Fgp.php%3FNAME%3DHAWK%26FORMAT%3Dtle'
   ];
+
+  // Offline fallback: HAWK 6A/6B/6C TLEs fetched from CelesTrak on 2026-04-29.
+  // Used only if every live source above fails (e.g. CORS or network outage).
+  // The app still attempts a fresh fetch on every load and every 6h.
+  const FALLBACK_TLE = `HAWK-6A
+1 55327U 23011D   26119.45216630  .00004994  00000+0  21925-3 0  9992
+2 55327  40.4991 274.6944 0002584   1.9581 358.1238 15.22489875180426
+HAWK-6B
+1 55324U 23011A   26119.51836108  .00005273  00000+0  23105-3 0  9997
+2 55324  40.4994 275.8448 0002150  20.3427 339.7468 15.22489134180429
+HAWK-6C
+1 55326U 23011C   26119.12415408  .00005426  00000+0  23748-3 0  9995
+2 55326  40.4980 274.9866 0002906   4.4998 355.5837 15.22488460180376`;
   const HAWK6_REGEX = /^HAWK[\s-]*6/i;
   const SAT_COLORS = ['#00d0ff', '#ffb44d', '#ff5da2', '#7cffb2', '#c89bff', '#ffd24d', '#69e0ff'];
   const TRAIL_LOOKBACK_MIN = 45;
@@ -522,15 +535,23 @@
 
   // ---------- Boot ----------
   async function loadTLE() {
-    const txt = await fetchTLE();
-    const sats = parseTLE(txt);
-    if (!sats.length) {
-      // Fallback: also accept HAWK-6, HAWK6, etc.
-      throw new Error('No HAWK 6 satellites in TLE feed.');
+    let txt, sourceLabel;
+    try {
+      txt = await fetchTLE();
+      sourceLabel = 'CelesTrak (live)';
+    } catch (e) {
+      console.warn('Live TLE fetch failed, using embedded fallback:', e);
+      txt = FALLBACK_TLE;
+      sourceLabel = 'embedded fallback (live feed unavailable)';
     }
+    const sats = parseTLE(txt);
+    if (!sats.length) throw new Error('No HAWK 6 satellites parsed from TLE feed.');
     state.sats = sats;
+    state.sourceLabel = sourceLabel;
     renderSatList();
     refreshTrails();
+    const sub = document.querySelector('#header .sub');
+    if (sub) sub.textContent = `HawkEye 360 Cluster 6 · ${sats.length} satellites · ${sourceLabel}`;
   }
 
   loadTLE()
@@ -540,10 +561,9 @@
     })
     .catch(err => {
       console.error(err);
-      $('error-msg').textContent = err.message + ' — Try refreshing in a few seconds, or check your network.';
+      $('error-msg').textContent = err.message;
       $('error').classList.add('visible');
       $('loader').classList.add('hidden');
-      // Still run the loop so the empty Earth renders
       tick();
     });
 })();
