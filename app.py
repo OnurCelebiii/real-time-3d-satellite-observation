@@ -18,7 +18,7 @@ Run locally:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from flask import Flask, abort, jsonify, request, send_from_directory
@@ -27,24 +27,30 @@ import hawk6_tracker as tracker
 
 app = Flask(__name__, static_folder=".", static_url_path="")
 
-# Cheap in-process cache so we don't hammer CelesTrak. The TLE feed only
-# updates a handful of times per day; 1 hour is plenty.
-_TLE_CACHE: dict = {"records": None, "fetched_at": 0.0}
-_TLE_TTL_SECONDS = 3600
+# Disk cache (data/hawk6.json) is considered fresh for 6h. After that,
+# the next request triggers an automatic re-fetch from CelesTrak.
+MAX_CACHE_AGE = timedelta(hours=6)
 
 
-def _get_records(force: bool = False) -> list[tracker.TLERecord]:
-    import time as _t
+def _records_from_cache(force: bool = False) -> tuple[list[tracker.TLERecord], dict]:
+    """Return live HAWK 6 records, refreshing the on-disk cache if stale.
 
-    now = _t.time()
-    if (
-        force
-        or _TLE_CACHE["records"] is None
-        or now - _TLE_CACHE["fetched_at"] > _TLE_TTL_SECONDS
-    ):
-        _TLE_CACHE["records"] = tracker.get_hawk6_tles()
-        _TLE_CACHE["fetched_at"] = now
-    return _TLE_CACHE["records"]
+    Also returns the snapshot's ``cache`` metadata block so endpoints can
+    expose freshness info to the client.
+    """
+    snap = tracker.load_or_refresh_snapshot(
+        max_age=MAX_CACHE_AGE,
+        force=force,
+    )
+    records = [
+        tracker.TLERecord(
+            name=s["name"],
+            line1=s["line1"],
+            line2=s["line2"],
+        )
+        for s in snap["satellites"]
+    ]
+    return records, snap.get("cache", {})
 
 
 def _parse_iso(value: Optional[str]) -> Optional[datetime]:
@@ -78,12 +84,12 @@ def index():
 
 @app.get("/api/tles")
 def api_tles():
-    records = _get_records(force=request.args.get("refresh") == "1")
+    records, cache_info = _records_from_cache(
+        force=request.args.get("refresh") == "1"
+    )
     return jsonify(
         {
-            "fetched_at": datetime.fromtimestamp(
-                _TLE_CACHE["fetched_at"], tz=timezone.utc
-            ).isoformat().replace("+00:00", "Z"),
+            "cache": cache_info,
             "satellites": [r.to_dict() for r in records],
         }
     )
@@ -93,8 +99,8 @@ def api_tles():
 def api_snapshot():
     when = _parse_iso(request.args.get("at"))
     include_trails = request.args.get("trails") in ("1", "true", "yes")
-    # Re-use the cached records so each /snapshot call is cheap.
-    records = _get_records()
+    force = request.args.get("refresh") == "1"
+    records, cache_info = _records_from_cache(force=force)
     epoch = when or datetime.now(timezone.utc)
     sats = []
     for r in records:
@@ -110,6 +116,7 @@ def api_snapshot():
             .replace("+00:00", "Z"),
             "epoch": epoch.isoformat().replace("+00:00", "Z"),
             "source": tracker.CELESTRAK_URL,
+            "cache": cache_info,
             "satellites": sats,
         }
     )
@@ -117,7 +124,7 @@ def api_snapshot():
 
 @app.get("/api/orbit/<name>")
 def api_orbit(name: str):
-    records = _get_records()
+    records, _ = _records_from_cache()
     target = next((r for r in records if r.name.upper() == name.upper()), None)
     if not target:
         abort(404, description=f"Unknown satellite: {name!r}")

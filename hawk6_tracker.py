@@ -21,7 +21,8 @@ import re
 import time
 from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta, timezone
-from typing import Iterable, Optional
+from pathlib import Path
+from typing import Iterable, Optional, Union
 
 import requests
 from skyfield.api import EarthSatellite, load, wgs84
@@ -42,6 +43,13 @@ HAWK6_NAME_PATTERN = re.compile(r"^HAWK[\s\-]*6", re.IGNORECASE)
 
 #: Mean Earth radius in km, used for altitude conversions / sanity checks.
 EARTH_RADIUS_KM = 6371.0
+
+#: How old the cached ``data/hawk6.json`` may be before we re-fetch.
+DEFAULT_MAX_CACHE_AGE = timedelta(hours=6)
+
+#: Default cache file relative to the repo root (the directory holding
+#: this module). Override per call if you need a different location.
+DEFAULT_CACHE_PATH = Path(__file__).resolve().parent / "data" / "hawk6.json"
 
 #: Embedded snapshot taken from CelesTrak on 2026-04-29. Used as the
 #: ultimate fallback if the network is unreachable; the live fetch is
@@ -299,6 +307,130 @@ def snapshot(
 
 
 # ---------------------------------------------------------------------------
+# Disk-cached snapshot with automatic refresh
+# ---------------------------------------------------------------------------
+
+
+def _parse_iso(value: str) -> datetime:
+    """Parse an ISO-8601 timestamp; tolerate a trailing ``Z``."""
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def cache_age(
+    path: Union[str, Path] = DEFAULT_CACHE_PATH,
+) -> Optional[timedelta]:
+    """Return how old the on-disk snapshot at ``path`` is, or ``None``
+    if it doesn't exist / can't be parsed.
+    """
+    p = Path(path)
+    if not p.exists():
+        return None
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        generated = _parse_iso(data["generated_at"])
+    except (OSError, ValueError, KeyError, json.JSONDecodeError):
+        return None
+    return datetime.now(timezone.utc) - generated
+
+
+def is_cache_fresh(
+    path: Union[str, Path] = DEFAULT_CACHE_PATH,
+    max_age: timedelta = DEFAULT_MAX_CACHE_AGE,
+) -> bool:
+    """``True`` iff a parseable cache exists and is younger than ``max_age``."""
+    age = cache_age(path)
+    return age is not None and age <= max_age
+
+
+def load_cached_snapshot(
+    path: Union[str, Path] = DEFAULT_CACHE_PATH,
+    max_age: timedelta = DEFAULT_MAX_CACHE_AGE,
+) -> Optional[dict]:
+    """Return the cached snapshot if it exists and is fresh, else ``None``."""
+    if not is_cache_fresh(path, max_age):
+        return None
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def write_snapshot(data: dict, path: Union[str, Path] = DEFAULT_CACHE_PATH) -> Path:
+    """Atomically write ``data`` as JSON to ``path`` and return the path."""
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(p.suffix + ".tmp")
+    tmp.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    tmp.replace(p)
+    return p
+
+
+def load_or_refresh_snapshot(
+    path: Union[str, Path] = DEFAULT_CACHE_PATH,
+    max_age: timedelta = DEFAULT_MAX_CACHE_AGE,
+    *,
+    force: bool = False,
+    include_trails: bool = False,
+    use_fallback: bool = True,
+) -> dict:
+    """Return a snapshot, refreshing the on-disk cache if it's stale.
+
+    The decision tree:
+
+    1. If ``force`` is False and ``path`` is younger than ``max_age``,
+       load and return it.
+    2. Otherwise call :func:`snapshot`, write the result to ``path``,
+       and return it.
+    3. If a fresh fetch fails *and* a stale cache exists, fall back to
+       the stale cache (better than nothing) and tag it as stale.
+
+    The returned dict always carries a ``"cache"`` block describing the
+    age of the data and whether a refresh just happened.
+    """
+    p = Path(path)
+    cached = None if force else load_cached_snapshot(p, max_age)
+    if cached is not None:
+        cached.setdefault("cache", {})
+        age = cache_age(p) or timedelta(0)
+        cached["cache"].update(
+            {
+                "path": str(p),
+                "age_seconds": int(age.total_seconds()),
+                "fresh": True,
+                "refreshed": False,
+            }
+        )
+        return cached
+
+    try:
+        data = snapshot(include_trails=include_trails, use_fallback=use_fallback)
+        write_snapshot(data, p)
+        data["cache"] = {
+            "path": str(p),
+            "age_seconds": 0,
+            "fresh": True,
+            "refreshed": True,
+        }
+        return data
+    except TLEFetchError:
+        # Network died. If a (possibly stale) file exists, return it
+        # rather than blowing up — staleness is better than a 500.
+        if p.exists():
+            try:
+                stale = json.loads(p.read_text(encoding="utf-8"))
+                age = cache_age(p) or timedelta(0)
+                stale.setdefault("cache", {}).update(
+                    {
+                        "path": str(p),
+                        "age_seconds": int(age.total_seconds()),
+                        "fresh": False,
+                        "refreshed": False,
+                    }
+                )
+                return stale
+            except (OSError, json.JSONDecodeError):
+                pass
+        raise
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -307,7 +439,7 @@ def _cli() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Print a JSON snapshot of the HAWK 6 constellation.",
+        description="Print or refresh a JSON snapshot of the HAWK 6 constellation.",
     )
     parser.add_argument(
         "--trails",
@@ -322,19 +454,46 @@ def _cli() -> None:
     parser.add_argument(
         "--output",
         "-o",
-        help="Write JSON to this path instead of stdout.",
+        help="Write JSON to this path instead of stdout (or refresh in place).",
+    )
+    parser.add_argument(
+        "--max-age-hours",
+        type=float,
+        default=DEFAULT_MAX_CACHE_AGE.total_seconds() / 3600,
+        help="If --output exists and is younger than this, reuse it. Default: 6h.",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Always re-fetch, ignoring any existing cache file.",
     )
     args = parser.parse_args()
-    data = snapshot(
-        include_trails=args.trails,
-        use_fallback=not args.no_fallback,
-    )
-    text = json.dumps(data, indent=2)
+
     if args.output:
-        with open(args.output, "w", encoding="utf-8") as f:
-            f.write(text)
+        path = Path(args.output)
+        data = load_or_refresh_snapshot(
+            path,
+            max_age=timedelta(hours=args.max_age_hours),
+            force=args.force,
+            include_trails=args.trails,
+            use_fallback=not args.no_fallback,
+        )
+        cache = data.get("cache", {})
+        if cache.get("refreshed"):
+            print(
+                f"Refreshed {path} ({len(data['satellites'])} sats: "
+                + ", ".join(s["name"] for s in data["satellites"])
+                + ")"
+            )
+        else:
+            age_min = (cache.get("age_seconds") or 0) // 60
+            print(f"Cache fresh ({age_min} min old) — kept {path}")
     else:
-        print(text)
+        data = snapshot(
+            include_trails=args.trails,
+            use_fallback=not args.no_fallback,
+        )
+        print(json.dumps(data, indent=2))
 
 
 if __name__ == "__main__":
