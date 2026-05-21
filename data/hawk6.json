@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-05-20T20:02:01.727965Z",
-  "epoch": "2026-05-20T20:01:43.887875Z",
+  "generated_at": "2026-05-21T02:12:49.589114Z",
+  "epoch": "2026-05-21T02:12:49.053891Z",
   "source": "https://celestrak.org/NORAD/elements/gp.php?NAME=HAWK&FORMAT=tle",
   "satellites": [
     {
@@ -13,11 +13,11 @@
       "position": {
         "name": "HAWK-6B",
         "norad_id": "55324",
-        "timestamp": "2026-05-20T20:01:43.887875Z",
-        "latitude_deg": -3.2249402888414975,
-        "longitude_deg": -31.106226814624744,
-        "altitude_km": 499.7166052128272,
-        "velocity_kms": 7.6153072480950845
+        "timestamp": "2026-05-21T02:12:49.053891Z",
+        "latitude_deg": -19.323347020506027,
+        "longitude_deg": -145.9730315819309,
+        "altitude_km": 502.56815103611024,
+        "velocity_kms": 7.613528459380019
       }
     },
     {
@@ -30,11 +30,11 @@
       "position": {
         "name": "HAWK-6C",
         "norad_id": "55326",
-        "timestamp": "2026-05-20T20:01:43.887875Z",
-        "latitude_deg": -0.8748745762310626,
-        "longitude_deg": -31.52159656607805,
-        "altitude_km": 499.68140959203356,
-        "velocity_kms": 7.615309570399501
+        "timestamp": "2026-05-21T02:12:49.053891Z",
+        "latitude_deg": -17.153800249601662,
+        "longitude_deg": -146.09790463114655,
+        "altitude_km": 502.39568641819386,
+        "velocity_kms": 7.6134288543927005
       }
     },
     {
@@ -47,11 +47,11 @@
       "position": {
         "name": "HAWK-6A",
         "norad_id": "55327",
-        "timestamp": "2026-05-20T20:01:43.887875Z",
-        "latitude_deg": -1.023758648624895,
-        "longitude_deg": -30.073358521162646,
-        "altitude_km": 499.50348327468254,
-        "velocity_kms": 7.615504741885279
+        "timestamp": "2026-05-21T02:12:49.053891Z",
+        "latitude_deg": -17.292501885546542,
+        "longitude_deg": -144.66544160449436,
+        "altitude_km": 502.31669145953344,
+        "velocity_kms": 7.613530956740099
       }
     }
   ]
