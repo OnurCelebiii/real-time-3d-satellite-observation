@@ -1,23 +1,23 @@
 {
-  "generated_at": "2026-06-02T10:03:32.800831Z",
-  "epoch": "2026-06-02T10:03:32.264575Z",
+  "generated_at": "2026-06-02T20:34:56.492442Z",
+  "epoch": "2026-06-02T20:34:55.783935Z",
   "source": "https://celestrak.org/NORAD/elements/gp.php?NAME=HAWK&FORMAT=tle",
   "satellites": [
     {
       "name": "HAWK-6B",
-      "line1": "1 55324U 23011A   26152.83755636  .00005211  00000+0  22642-3 0  9992",
-      "line2": "2 55324  40.4987  81.5912 0004589 281.5803  78.4491 15.22785205185501",
+      "line1": "1 55324U 23011A   26152.96872114  .00005216  00000+0  22662-3 0  9994",
+      "line2": "2 55324  40.4988  80.8265 0004582 282.4119  77.6177 15.22786806185520",
       "norad_id": "55324",
-      "inclination_deg": 40.4987,
-      "period_minutes": 94.56356650115997,
+      "inclination_deg": 40.4988,
+      "period_minutes": 94.56346708063084,
       "position": {
         "name": "HAWK-6B",
         "norad_id": "55324",
-        "timestamp": "2026-06-02T10:03:32.264575Z",
-        "latitude_deg": -28.803756906988976,
-        "longitude_deg": -3.3892802502644344,
-        "altitude_km": 501.889726485298,
-        "velocity_kms": 7.615655166804935
+        "timestamp": "2026-06-02T20:34:55.783935Z",
+        "latitude_deg": -12.477989073924922,
+        "longitude_deg": 70.5171498252406,
+        "altitude_km": 499.3356306078753,
+        "velocity_kms": 7.616064452515137
       }
     },
     {
@@ -30,11 +30,11 @@
       "position": {
         "name": "HAWK-6C",
         "norad_id": "55326",
-        "timestamp": "2026-06-02T10:03:32.264575Z",
-        "latitude_deg": -27.045628771943836,
-        "longitude_deg": -3.21637168040645,
-        "altitude_km": 501.3938750336454,
-        "velocity_kms": 7.615869596345565
+        "timestamp": "2026-06-02T20:34:55.783935Z",
+        "latitude_deg": -14.621884766689796,
+        "longitude_deg": 70.10930496775431,
+        "altitude_km": 499.26816418919367,
+        "velocity_kms": 7.6163570870717345
       }
     },
     {
@@ -47,11 +47,11 @@
       "position": {
         "name": "HAWK-6A",
         "norad_id": "55327",
-        "timestamp": "2026-06-02T10:03:32.264575Z",
-        "latitude_deg": -27.093709010654372,
-        "longitude_deg": -1.6794525405153893,
-        "altitude_km": 501.59023015192344,
-        "velocity_kms": 7.6156660649683605
+        "timestamp": "2026-06-02T20:34:55.783935Z",
+        "latitude_deg": -14.566227605941322,
+        "longitude_deg": 71.6591674270707,
+        "altitude_km": 499.28580333356007,
+        "velocity_kms": 7.616335661118569
       }
     }
   ]
