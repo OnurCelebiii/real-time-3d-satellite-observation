@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-07-06T02:08:48.729604Z",
-  "epoch": "2026-07-06T02:08:48.362889Z",
+  "generated_at": "2026-07-06T09:55:11.683723Z",
+  "epoch": "2026-07-06T09:55:11.320048Z",
   "source": "https://celestrak.org/NORAD/elements/gp.php?NAME=HAWK&FORMAT=tle",
   "satellites": [
     {
@@ -13,28 +13,28 @@
       "position": {
         "name": "HAWK-6B",
         "norad_id": "55324",
-        "timestamp": "2026-07-06T02:08:48.362889Z",
-        "latitude_deg": 35.21447474495985,
-        "longitude_deg": 50.25160270439307,
-        "altitude_km": 497.17225945130366,
-        "velocity_kms": 7.621668133263815
+        "timestamp": "2026-07-06T09:55:11.320048Z",
+        "latitude_deg": 40.38688617997586,
+        "longitude_deg": -95.41964530884465,
+        "altitude_km": 498.9790816480754,
+        "velocity_kms": 7.620797319647575
       }
     },
     {
       "name": "HAWK-6C",
       "line1": "1 55326U 23011C   26186.34612997  .00006946  00000+0  29629-3 0  9997",
-      "line2": "2 55326  40.4959 242.9826 0002970 169.3482 190.7391 15.23096524190623",
+      "line2": "2 55326  40.4959 242.9826 0002971 169.3482 190.7391 15.23096524190624",
       "norad_id": "55326",
       "inclination_deg": 40.4959,
       "period_minutes": 94.54423782796316,
       "position": {
         "name": "HAWK-6C",
         "norad_id": "55326",
-        "timestamp": "2026-07-06T02:08:48.362889Z",
-        "latitude_deg": 33.88045537172647,
-        "longitude_deg": 50.9217012359613,
-        "altitude_km": 496.23620265840543,
-        "velocity_kms": 7.6224176365455145
+        "timestamp": "2026-07-06T09:55:11.320048Z",
+        "latitude_deg": 39.9949493271934,
+        "longitude_deg": -94.13135754020219,
+        "altitude_km": 498.21852009864324,
+        "velocity_kms": 7.621546516583524
       }
     },
     {
@@ -47,11 +47,11 @@
       "position": {
         "name": "HAWK-6A",
         "norad_id": "55327",
-        "timestamp": "2026-07-06T02:08:48.362889Z",
-        "latitude_deg": 33.955170459500195,
-        "longitude_deg": 52.34806929597664,
-        "altitude_km": 496.39774994152776,
-        "velocity_kms": 7.622252408014884
+        "timestamp": "2026-07-06T09:55:11.320048Z",
+        "latitude_deg": 40.020889892961094,
+        "longitude_deg": -92.73739073465129,
+        "altitude_km": 498.25079636315246,
+        "velocity_kms": 7.621514629811899
       }
     }
   ]
