@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-07-13T01:48:23.323357Z",
-  "epoch": "2026-07-13T01:48:22.671846Z",
+  "generated_at": "2026-07-13T08:47:25.874948Z",
+  "epoch": "2026-07-13T08:47:25.413896Z",
   "source": "https://celestrak.org/NORAD/elements/gp.php?NAME=HAWK&FORMAT=tle",
   "satellites": [
     {
@@ -13,11 +13,11 @@
       "position": {
         "name": "HAWK-6B",
         "norad_id": "55324",
-        "timestamp": "2026-07-13T01:48:22.671846Z",
-        "latitude_deg": -28.330935749286265,
-        "longitude_deg": -155.90277997888938,
-        "altitude_km": 503.15192296287756,
-        "velocity_kms": 7.613584279211154
+        "timestamp": "2026-07-13T08:47:25.413896Z",
+        "latitude_deg": 37.44519429408125,
+        "longitude_deg": -106.85897107873913,
+        "altitude_km": 499.39072845394185,
+        "velocity_kms": 7.6196283547120025
       }
     },
     {
@@ -30,11 +30,11 @@
       "position": {
         "name": "HAWK-6C",
         "norad_id": "55326",
-        "timestamp": "2026-07-13T01:48:22.671846Z",
-        "latitude_deg": -26.540023338824014,
-        "longitude_deg": -155.74253853532633,
-        "altitude_km": 503.0455636617053,
-        "velocity_kms": 7.613366157885922
+        "timestamp": "2026-07-13T08:47:25.413896Z",
+        "latitude_deg": 36.35983303050651,
+        "longitude_deg": -105.94071603861673,
+        "altitude_km": 498.79253143994606,
+        "velocity_kms": 7.62005039969547
       }
     },
     {
@@ -47,11 +47,11 @@
       "position": {
         "name": "HAWK-6A",
         "norad_id": "55327",
-        "timestamp": "2026-07-13T01:48:22.671846Z",
-        "latitude_deg": -26.646719324807215,
-        "longitude_deg": -154.30537680503747,
-        "altitude_km": 503.1631511373493,
-        "velocity_kms": 7.613257463316296
+        "timestamp": "2026-07-13T08:47:25.413896Z",
+        "latitude_deg": 36.42461792403059,
+        "longitude_deg": -104.53762244583349,
+        "altitude_km": 498.5991672673089,
+        "velocity_kms": 7.620281070346827
       }
     }
   ]
